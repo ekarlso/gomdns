@@ -1,0 +1,96 @@
+SHELL = /bin/bash
+
+ifeq ($(TMPDIR),)
+endif
+export TMPDIR
+
+PROTOC = @PROTOC@
+GO     = @GO@
+GOFMT  = @GOFMT@
+GOROOT = @GOROOT@
+AUTORECONF = @AUTORECONF@
+LRT_LDFLAG = @LRT_LDFLAG@
+# or 386, arm
+arch   = amd64
+CGO_ENABLED = 1
+
+ifneq ($(GOROOT),)
+export GOROOT
+endif
+
+cflags =
+ifeq ($(arch),386)
+	cflags = -m32
+else
+ifeq ($(arch),arm)
+	cflags = -fpic
+endif
+endif
+
+ifneq ($(arch),)
+	GOARCH = $(arch)
+endif
+
+ifneq ($(CROSS_COMPILE),)
+export CXX=$(CROSS_COMPILE)-g++
+export CC=$(CROSS_COMPILE)-gcc
+export AS=$(CROSS_COMPILE)-as
+export AR=$(CROSS_COMPILE)-ar
+export NM=$(CROSS_COMPILE)-nm
+export LD=$(CROSS_COMPILE)-ld
+export OBJDUMP=$(CROSS_COMPILE)-objdump
+export OBJCOPY=$(CROSS_COMPILE)-objcopy
+export RANLIB=$(CROSS_COMPILE)-ranlib
+export STRIP=$(CROSS_COMPILE)-strip
+export CXX_FOR_TARGET=$(CROSS_COMPILE)-g++
+export CC_FOR_TARGET=$(CROSS_COMPILE)-gcc
+GO_BUILD_OPTIONS += -ldflags="-extld=$(CC)"
+cross_flags = --host=$(arch)
+endif
+
+export GOARCH
+export CGO_ENABLED
+
+
+all: | dependencies build
+
+
+root := $(shell pwd)/../../../..
+ifeq ($(GOPATH),)
+GOPATH := $(root)
+export GOPATH
+endif
+uname_S = $(shell sh -c "uname -s 2>/dev/null || echo not")
+
+
+ifneq ($(GO_BUILD_TAGS),)
+GO_BUILD_OPTIONS += -tags '$(GO_BUILD_TAGS)'
+endif
+race = off
+ifneq ($(race),off)
+	GO_BUILD_OPTIONS += -race
+endif
+
+# Dependencies
+dependencies = github.com/miekg/dns \
+code.google.com/p/log4go \
+github.com/BurntSushi/toml \
+
+dependencies_paths := $(addprefix $(root)/src/,$(dependencies))
+
+$(dependencies_paths):
+	for i in $(dependencies); do $(GO) get -d $$i; done
+
+dependencies: $(storage_engines) $(dependencies_paths)
+	
+build: | dependencies build_version_string 
+	$(GO) build -o minidns $(GO_BUILD_OPTIONS) github.com/ekarlso/gomdns/daemon
+
+clean:
+	git status --ignored | grep src\/ | grep -v Makefile | xargs rm -rf
+	rm -rf ${TMPDIR}/minidns
+
+build_version_string:
+	@echo "package main"										 > daemon/version.go
+	@echo "const version = \"$(version)\"" >> daemon/version.go
+	@echo "const gitSha = \"$(sha1)\""     >> daemon/version.go
