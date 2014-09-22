@@ -63,8 +63,11 @@ func main() {
 		name, secret = dns.Fqdn(a[0]), a[1] // fqdn the name, which everybody forgets...
 	}
 
+	config.Bind = addr
+	config.StorageDSN = connection
+
 	// Setup db access
-	db.CheckDB(connection)
+	db.CheckDB(config.StorageDSN)
 
 	// registers a handlers at the root
 	dns.HandleFunc(".", server.HandleQuery)

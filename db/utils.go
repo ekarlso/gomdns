@@ -21,14 +21,14 @@ package db
 
 import (
 	log "code.google.com/p/log4go"
-	"database/sql"
 	_ "github.com/go-sql-driver/mysql"
+	"github.com/jmoiron/sqlx"
 )
 
 // Connect and return a connection
-func Connect(dsn string) *sql.DB {
+func Connect(dsn string) *sqlx.DB {
 	log.Info("Connecting to %s", dsn)
-	conn, err := sql.Open("mysql", dsn)
+	conn, err := sqlx.Open("mysql", dsn)
 
 	if err != nil {
 		log.Crash(err)

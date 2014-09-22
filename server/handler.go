@@ -20,15 +20,99 @@
 package server
 
 import (
+	log "code.google.com/p/log4go"
 	"github.com/ekarlso/gomdns/config"
 	"github.com/ekarlso/gomdns/db"
-
-	log "code.google.com/p/log4go"
 	"github.com/miekg/dns"
+	"strings"
 )
 
-func HandleQuery(w dns.ResponseWriter, r *dns.Msg) {
-	log.Debug("Handling query")
+func HandleQuery(writer dns.ResponseWriter, req *dns.Msg) {
+	cfg := config.GetConfig()
 
-	_ = db.Connect(config.Configuration.StorageDSN)
+	var (
+		zone db.Zone
+	)
+
+	query := req.Question[0]
+
+	log.Info("Received query for %s type %s from %s", query.Name, query.Qtype, writer.RemoteAddr())
+
+	// Create a new msg and set the reply
+	m := new(dns.Msg)
+	m.SetReply(req)
+
+	// Compress or not
+	m.Compress = cfg.CompressQuery
+	// We are authoritative..
+	m.Authoritative = true
+
+	m.Answer = make([]dns.RR, 0, 10)
+
+	defer func() {
+		err := writer.WriteMsg(m)
+		if err != nil {
+			log.Trace(err)
+		}
+	}()
+
+	// Check of we have the zone in our db.
+	zoneName := strings.ToLower(query.Name)
+	if _, ok := dns.IsDomainName(zoneName); ok {
+		log.Info("Name %s is Zone", zoneName)
+
+		var err error
+		err, zone = db.GetZoneByName(zoneName)
+		if err != nil {
+			log.Warn("Zone %s wasn't found", zoneName)
+			return
+		}
+	} else {
+		log.Warn("Request %s is not a valid Zone")
+		return
+	}
+
+	// Log the reply
+	if cfg.LogQuery == true {
+		log.Debug("Query: %v\n", m.String())
+	}
+
+	if query.Qtype == dns.TypeSOA {
+		soa, _ := SOARecord(zone)
+
+		m.Answer = []dns.RR{soa}
+		log.Info(m.Answer)
+		return
+	}
+}
+
+func SOARecord(zone db.Zone) (soa dns.RR, err error) {
+	rrset, err := db.GetRecordSet(zone.Id, "SOA")
+
+	if err != nil {
+		return nil, err
+	}
+
+	header := dns.RR_Header{Name: zone.Name, Rrtype: dns.TypeSOA, Class: dns.ClassINET, Ttl: zone.Ttl}
+
+	var ttl uint32
+	if rrset.Ttl.Valid {
+		ttl = uint32(rrset.Ttl.Int64)
+		log.Debug("%v", rrset.Ttl.Int64)
+	} else {
+		ttl = zone.Ttl
+	}
+
+	soa = &dns.SOA{
+		Hdr:     header,
+		Ns:      rrset.Name,
+		Mbox:    strings.Replace(zone.Email, "@", ".", -1) + ".",
+		Serial:  uint32(zone.Serial),
+		Refresh: uint32(zone.Refresh),
+		Retry:   uint32(zone.Retry),
+		Expire:  uint32(zone.Expire),
+		Minttl:  ttl,
+	}
+
+	return soa, err
 }

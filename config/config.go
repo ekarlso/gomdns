@@ -23,9 +23,14 @@ import (
 	log "code.google.com/p/log4go"
 	"encoding/json"
 	"fmt"
-	"io/ioutil"
-
 	"github.com/BurntSushi/toml"
+	"io/ioutil"
+	"sync"
+)
+
+var (
+	cfg  *Configuration
+	lock = new(sync.RWMutex)
 )
 
 type StorageConfig struct {
@@ -34,8 +39,10 @@ type StorageConfig struct {
 }
 
 type ServerConfig struct {
-	Address string
-	Port    int
+	Address       string
+	Port          int
+	LogQuery      bool
+	CompressQuery bool
 }
 
 type TomlConfiguration struct {
@@ -47,10 +54,13 @@ type Configuration struct {
 	StorageDSN     string
 	StorageMaxIdle int
 	Bind           string
+	LogQuery       bool
+	CompressQuery  bool
 }
 
 func LoadConfiguration(fileName string) (*Configuration, error) {
 	log.Info("Loading configuration file %s", fileName)
+
 	config, err := parseTomlConfiguration(fileName)
 	if err != nil {
 		fmt.Println("Couldn't parse configuration file: " + fileName)
@@ -58,7 +68,16 @@ func LoadConfiguration(fileName string) (*Configuration, error) {
 		return nil, err
 	}
 
-	return config, nil
+	lock.Lock()
+	cfg = config
+	lock.Unlock()
+	return cfg, nil
+}
+
+func GetConfig() *Configuration {
+	lock.RLock()
+	defer lock.RUnlock()
+	return cfg
 }
 
 func parseTomlConfiguration(filename string) (*Configuration, error) {
@@ -75,7 +94,10 @@ func parseTomlConfiguration(filename string) (*Configuration, error) {
 	config := &Configuration{
 		StorageDSN:     tomlConfiguration.Storage.DSN,
 		StorageMaxIdle: tomlConfiguration.Storage.MaxIdle,
-		Bind:           tomlConfiguration.Server.Address,
+
+		Bind:          tomlConfiguration.Server.Address,
+		LogQuery:      tomlConfiguration.Server.LogQuery,
+		CompressQuery: tomlConfiguration.Server.CompressQuery,
 	}
 	return config, err
 }

@@ -4,3 +4,4 @@ dsn = "designate:designate@tcp(localhost:3306)/designate"
 [server]
 address = ""
 port = 5053
+logquery = true
