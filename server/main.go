@@ -20,12 +20,12 @@
 package main
 
 import (
+	log "code.google.com/p/log4go"
 	"flag"
 	config "github.com/ekarlso/gomdns/config"
 	db "github.com/ekarlso/gomdns/db"
 	server "github.com/ekarlso/gomdns/server"
 	"github.com/miekg/dns"
-	"log"
 	"os"
 	"os/signal"
 	"strings"
@@ -57,7 +57,7 @@ func main() {
 		return
 	}
 
-	log.Printf("Connection %s", config.StorageDSN)
+	log.Info("Connection %s", config.StorageDSN)
 	if tsig != "" {
 		a := strings.SplitN(tsig, ":", 2)
 		name, secret = dns.Fqdn(a[0]), a[1] // fqdn the name, which everybody forgets...
@@ -80,7 +80,7 @@ forever:
 	for {
 		select {
 		case s := <-sig:
-			log.Printf("Signal (%d) received, stopping\n", s)
+			log.Info("Signal (%d) received, stopping\n", s)
 			break forever
 		}
 	}
