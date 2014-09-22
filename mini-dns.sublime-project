@@ -1,0 +1,10 @@
+{
+    "settings": {
+        "GoSublime": {
+            "env": {
+                "GOPATH": "$HOME/projects/golang",
+                "GOROOT": "/tmp"
+            }
+        }
+    }
+}
