@@ -25,7 +25,7 @@ import (
 )
 
 func Serve(net, addr, name, secret string) {
-	log.Info("Starting server on %s - %s\n", net, addr)
+	log.Info("Starting server on %s - %s", net, addr)
 
 	switch name {
 	case "":

@@ -57,7 +57,7 @@ func main() {
 		return
 	}
 
-	log.Info("Connection %s", config.StorageDSN)
+	log.Info("Database is at connection %s", config.StorageDSN)
 	if tsig != "" {
 		a := strings.SplitN(tsig, ":", 2)
 		name, secret = dns.Fqdn(a[0]), a[1] // fqdn the name, which everybody forgets...
