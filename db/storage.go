@@ -38,34 +38,32 @@ type Record struct {
 	Hash        string
 }
 
-func GetZoneById(zoneId string) (error, Zone) {
+func GetZoneById(zoneId string) (z Zone, err error) {
 	cfg := config.GetConfig()
-	conn := Connect(cfg.StorageDSN)
+	conn, _ := Connect(cfg.StorageDSN)
 
-	var z Zone
-	err := conn.Get(&z, "SELECT id, version, name, email, ttl, serial, refresh, retry, expire, minimum FROM domains WHERE id = ?", zoneId)
-	return err, z
+	err = conn.Get(&z, "SELECT id, version, name, email, ttl, serial, refresh, retry, expire, minimum FROM domains WHERE id = ?", zoneId)
+	return z, err
 }
 
-func GetZoneByName(zoneName string) (error, Zone) {
+func GetZoneByName(zoneName string) (z Zone, err error) {
 	cfg := config.GetConfig()
-	conn := Connect(cfg.StorageDSN)
+	conn, _ := Connect(cfg.StorageDSN)
 
 	log.Info("Fetching domain by name %s", zoneName)
 
-	var z Zone
-	err := conn.Get(&z, "SELECT id, version, name, email, ttl, serial, refresh, retry, expire, minimum FROM domains WHERE name = ?", zoneName)
+	err = conn.Get(&z, "SELECT id, version, name, email, ttl, serial, refresh, retry, expire, minimum FROM domains WHERE name = ?", zoneName)
 
-	return err, z
+	return z, err
 }
 
 func GetRecordSet(zoneId string, recordType string) (rs RecordSet, err error) {
 	cfg := config.GetConfig()
-	conn := Connect(cfg.StorageDSN)
+	conn, _ := Connect(cfg.StorageDSN)
 
 	err = conn.Get(&rs, "SELECT id, domain_id, name, type, ttl FROM recordsets WHERE domain_id = ? AND type = ?", zoneId, recordType)
 	if err != nil {
-		return RecordSet{}, err
+		return rs, err
 	}
 
 	records := []Record{}
@@ -74,5 +72,5 @@ func GetRecordSet(zoneId string, recordType string) (rs RecordSet, err error) {
 		log.Error("Error fetching records for RRset %s", err)
 	}
 	rs.Records = records
-	return rs, nil
+	return rs, err
 }

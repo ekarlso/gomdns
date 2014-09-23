@@ -26,24 +26,32 @@ import (
 )
 
 // Connect and return a connection
-func Connect(dsn string) *sqlx.DB {
+func Connect(dsn string) (conn *sqlx.DB, err error) {
 	log.Info("Connecting to %s", dsn)
-	conn, err := sqlx.Open("mysql", dsn)
+	conn, err = sqlx.Open("mysql", dsn)
 
 	if err != nil {
-		log.Crash(err)
+		log.Error(err)
+		return conn, err
 	}
 
-	return conn
+	err = conn.Ping()
+	if err != nil {
+		log.Error("Error connecting to db %s", err)
+		return conn, err
+	}
+
+	return conn, nil
 }
 
 // Check that the DB is valid.
 func CheckDB(dsn string) bool {
-	conn := Connect(dsn)
+	conn, _ := Connect(dsn)
 
 	_, err := conn.Exec("SELECT * FROM domains")
 	if err != nil {
-		log.Crash(err)
+		log.Error(err)
+		return false
 	}
 
 	return true

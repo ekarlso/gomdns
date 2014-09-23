@@ -62,7 +62,7 @@ func HandleQuery(writer dns.ResponseWriter, req *dns.Msg) {
 		log.Info("Name %s is Zone", zoneName)
 
 		var err error
-		err, zone = db.GetZoneByName(zoneName)
+		zone, err = db.GetZoneByName(zoneName)
 		if err != nil {
 			log.Warn("Zone %s wasn't found", zoneName)
 			return
@@ -95,10 +95,10 @@ func SOARecord(zone db.Zone) (soa dns.RR, err error) {
 
 	header := dns.RR_Header{Name: zone.Name, Rrtype: dns.TypeSOA, Class: dns.ClassINET, Ttl: zone.Ttl}
 
+	// Ttl can be stored on the rrset.Ttl or default to zone.Ttl
 	var ttl uint32
 	if rrset.Ttl.Valid {
 		ttl = uint32(rrset.Ttl.Int64)
-		log.Debug("%v", rrset.Ttl.Int64)
 	} else {
 		ttl = zone.Ttl
 	}

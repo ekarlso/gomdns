@@ -41,7 +41,7 @@ var (
 
 func main() {
 	fileName := flag.String("config", "config.sample.toml", "Config file")
-	flag.StringVar(&connection, "connection", "designate:designate@tcp(localhost:3306)/designate", "")
+	flag.StringVar(&connection, "connection", "designate:designate@tcp(localhost:3306)/designate", "Connection string to use for Database")
 	flag.StringVar(&addr, "addr", ":5053", "Addr to listen at")
 	flag.StringVar(&tsig, "tsig", "", "use MD5 hmac tsig: keyname:base64")
 
@@ -67,7 +67,10 @@ func main() {
 	config.StorageDSN = connection
 
 	// Setup db access
-	db.CheckDB(config.StorageDSN)
+	if db.CheckDB(config.StorageDSN) != true {
+		log.Warn("Error verifying database connectivity, see above for errors")
+		os.Exit(1)
+	}
 
 	// registers a handlers at the root
 	dns.HandleFunc(".", server.HandleQuery)
