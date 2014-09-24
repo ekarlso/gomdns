@@ -57,20 +57,21 @@ func GetZoneByName(zoneName string) (z Zone, err error) {
 	return z, err
 }
 
-func GetRecordSet(zoneId string, recordType string) (rs RecordSet, err error) {
+func GetRecordSet(rrName string, rrType string) (rrSet RecordSet, err error) {
 	cfg := config.GetConfig()
 	conn, _ := Connect(cfg.StorageDSN)
 
-	err = conn.Get(&rs, "SELECT id, domain_id, name, type, ttl FROM recordsets WHERE domain_id = ? AND type = ?", zoneId, recordType)
+	log.Debug(rrName)
+	err = conn.Get(&rrSet, "SELECT id, domain_id, name, type, ttl from recordsets WHERE name = ?", rrName)
 	if err != nil {
-		return rs, err
+		return rrSet, err
 	}
 
 	records := []Record{}
-	err = conn.Select(&records, "SELECT id, domain_id, recordset_id, data, priority, hash FROM records WHERE recordset_id = ?", rs.Id)
+	err = conn.Select(&records, "SELECT id, domain_id, recordset_id, data, priority, hash FROM records WHERE recordset_id = ?", rrSet.Id)
 	if err != nil {
 		log.Error("Error fetching records for RRset %s", err)
 	}
-	rs.Records = records
-	return rs, err
+	rrSet.Records = records
+	return rrSet, err
 }

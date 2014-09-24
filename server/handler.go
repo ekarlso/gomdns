@@ -24,15 +24,12 @@ import (
 	"github.com/ekarlso/gomdns/config"
 	"github.com/ekarlso/gomdns/db"
 	"github.com/miekg/dns"
+	"net"
 	"strings"
 )
 
 func HandleQuery(writer dns.ResponseWriter, req *dns.Msg) {
 	cfg := config.GetConfig()
-
-	var (
-		zone db.Zone
-	)
 
 	query := req.Question[0]
 
@@ -49,6 +46,7 @@ func HandleQuery(writer dns.ResponseWriter, req *dns.Msg) {
 
 	m.Answer = make([]dns.RR, 0, 10)
 
+	// Deferred write
 	defer func() {
 		err := writer.WriteMsg(m)
 		if err != nil {
@@ -56,38 +54,88 @@ func HandleQuery(writer dns.ResponseWriter, req *dns.Msg) {
 		}
 	}()
 
-	// Check of we have the zone in our db.
-	zoneName := strings.ToLower(query.Name)
-	if _, ok := dns.IsDomainName(zoneName); ok {
-		log.Info("Name %s is Zone", zoneName)
-
-		var err error
-		zone, err = db.GetZoneByName(zoneName)
-		if err != nil {
-			log.Warn("Zone %s wasn't found", zoneName)
-			return
-		}
-	} else {
-		log.Warn("Request %s is not a valid Zone")
-		return
-	}
-
 	// Log the reply
 	if cfg.LogQuery == true {
 		log.Debug("Query: %v\n", m.String())
 	}
 
+	//name := strings.ToLower(query.Name)
+
 	if query.Qtype == dns.TypeSOA {
-		soa, _ := SOARecord(zone)
+		soa, _ := SOARecord(query)
 
 		m.Answer = []dns.RR{soa}
 		log.Info(m.Answer)
 		return
 	}
+
+	m.Answer, _ = HandleRRSet(query)
 }
 
-func SOARecord(zone db.Zone) (soa dns.RR, err error) {
-	rrset, err := db.GetRecordSet(zone.Id, "SOA")
+func getTtl(rrSet db.RecordSet) (ttl uint32, err error) {
+	var (
+		zone db.Zone
+	)
+	zone, err = db.GetZoneById(rrSet.DomainId)
+
+	if rrSet.Ttl.Valid {
+		ttl = uint32(rrSet.Ttl.Int64)
+	} else {
+		ttl = zone.Ttl
+	}
+	return ttl, err
+}
+
+func HandleRRSet(query dns.Question) (records []dns.RR, err error) {
+	log.Info("Attempting to resolve RRSet")
+
+	name := strings.ToLower(query.Name)
+
+	// Attempt to resolve a RRSet and it's Records
+	var (
+		rrSet  db.RecordSet
+		header dns.RR_Header
+		ttl    uint32
+	)
+
+	rrSet, err = db.GetRecordSet(name, dns.TypeToString[query.Qtype])
+	if err != nil {
+		log.Error("RecordSet not found", err)
+		return records, err
+	}
+
+	ttl, err = getTtl(rrSet)
+
+	rrType := dns.StringToType[rrSet.Type]
+
+	log.Debug(ttl)
+	log.Debug(rrSet.Type)
+	header = dns.RR_Header{Name: rrSet.Name, Rrtype: rrType, Class: dns.ClassINET, Ttl: ttl}
+	for _, s := range rrSet.Records {
+		var record dns.RR
+
+		switch query.Qtype {
+		case dns.TypeA:
+			log.Debug("IS A ", s)
+			record = &dns.A{Hdr: header, A: net.ParseIP(s.Data)}
+		}
+
+		records = append(records, record)
+	}
+	//records = append(records, &dns.A{Hdr: header, A: ip.To()})
+
+	return records, err
+}
+
+func SOARecord(query dns.Question) (soa dns.RR, err error) {
+	name := strings.ToLower(query.Name)
+
+	var (
+		ttl uint32
+	)
+
+	zone, err := db.GetZoneByName(name)
+	rrSet, err := db.GetRecordSet(name, "SOA")
 
 	if err != nil {
 		return nil, err
@@ -96,16 +144,10 @@ func SOARecord(zone db.Zone) (soa dns.RR, err error) {
 	header := dns.RR_Header{Name: zone.Name, Rrtype: dns.TypeSOA, Class: dns.ClassINET, Ttl: zone.Ttl}
 
 	// Ttl can be stored on the rrset.Ttl or default to zone.Ttl
-	var ttl uint32
-	if rrset.Ttl.Valid {
-		ttl = uint32(rrset.Ttl.Int64)
-	} else {
-		ttl = zone.Ttl
-	}
-
+	ttl, err = getTtl(rrSet)
 	soa = &dns.SOA{
 		Hdr:     header,
-		Ns:      rrset.Name,
+		Ns:      rrSet.Name,
 		Mbox:    strings.Replace(zone.Email, "@", ".", -1) + ".",
 		Serial:  uint32(zone.Serial),
 		Refresh: uint32(zone.Refresh),
