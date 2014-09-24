@@ -120,6 +120,8 @@ func HandleRRSet(query dns.Question) (records []dns.RR, err error) {
 			record = &dns.A{Hdr: header, A: net.ParseIP(s.Data)}
 		}
 
+		log.Debug("Adding record")
+
 		records = append(records, record)
 	}
 	//records = append(records, &dns.A{Hdr: header, A: ip.To()})
