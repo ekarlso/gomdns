@@ -51,6 +51,7 @@ func HandleQuery(writer dns.ResponseWriter, req *dns.Msg) {
 		err := writer.WriteMsg(m)
 		if err != nil {
 			log.Trace(err)
+			return
 		}
 	}()
 
@@ -58,8 +59,6 @@ func HandleQuery(writer dns.ResponseWriter, req *dns.Msg) {
 	if cfg.LogQuery == true {
 		log.Debug("Query: %v\n", m.String())
 	}
-
-	//name := strings.ToLower(query.Name)
 
 	if query.Qtype == dns.TypeSOA {
 		soa, _ := SOARecord(query)
@@ -70,6 +69,7 @@ func HandleQuery(writer dns.ResponseWriter, req *dns.Msg) {
 	}
 
 	records, err := HandleRRSet(query)
+
 	if err != nil {
 		log.Error("Something went bad: %s", err)
 		return
@@ -124,15 +124,24 @@ func HandleRRSet(query dns.Question) (records []dns.RR, err error) {
 
 		switch query.Qtype {
 		case dns.TypeA:
-			log.Debug("IS A ", s)
 			record = &dns.A{Hdr: header, A: net.ParseIP(s.Data)}
+		case dns.TypeAAAA:
+			record = &dns.AAAA{Hdr: header, AAAA: net.ParseIP(s.Data)}
+		case dns.TypeNS:
+			record = &dns.NS{Hdr: header, Ns: s.Data}
+		case dns.TypeMX:
+			record = &dns.MX{
+				Hdr:        header,
+				Preference: uint16(s.Priority.Int64),
+				Mx:         s.Data}
 		}
 
-		log.Debug("Adding record")
-
-		records = append(records, record)
+		if record != nil {
+			records = append(records, record)
+		} else {
+			log.Error("Unhandled record")
+		}
 	}
-	//records = append(records, &dns.A{Hdr: header, A: ip.To()})
 
 	return records, err
 }
