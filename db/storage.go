@@ -72,7 +72,7 @@ func GetRecordSet(rrName string, rrType string) (rrSet RecordSet, err error) {
 
 	defer conn.Close()
 
-	err = conn.Get(&rrSet, "SELECT id, domain_id, name, type, ttl from recordsets WHERE name = ?", rrName)
+	err = conn.Get(&rrSet, "SELECT id, domain_id, name, type, ttl from recordsets WHERE name = ? AND type = ?", rrName, rrType)
 	if err != nil {
 		log.Debug("Failed getting RRSet")
 		return rrSet, err
