@@ -76,7 +76,12 @@ func getTtl(rrSet db.RecordSet) (ttl uint32, err error) {
 	var (
 		zone db.Zone
 	)
+
 	zone, err = db.GetZoneById(rrSet.DomainId)
+
+	if err != nil {
+		return ttl, err
+	}
 
 	if rrSet.Ttl.Valid {
 		ttl = uint32(rrSet.Ttl.Int64)
