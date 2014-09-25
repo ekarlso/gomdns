@@ -113,8 +113,6 @@ func HandleRRSet(query dns.Question) (records []dns.RR, err error) {
 
 	rrType := dns.StringToType[rrSet.Type]
 
-	log.Debug(ttl)
-	log.Debug(rrSet.Type)
 	header = dns.RR_Header{Name: rrSet.Name, Rrtype: rrType, Class: dns.ClassINET, Ttl: ttl}
 	for _, s := range rrSet.Records {
 		var record dns.RR
