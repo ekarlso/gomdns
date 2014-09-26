@@ -20,12 +20,13 @@
 package config
 
 import (
-	log "code.google.com/p/log4go"
 	"encoding/json"
 	"fmt"
-	"github.com/BurntSushi/toml"
 	"io/ioutil"
 	"sync"
+
+	log "code.google.com/p/log4go"
+	"github.com/BurntSushi/toml"
 )
 
 var (
@@ -33,29 +34,43 @@ var (
 	lock = new(sync.RWMutex)
 )
 
+type ApiConfig struct {
+	Port int
+	Bind string
+}
+
 type StorageConfig struct {
 	DSN     string
 	MaxIdle int
 }
 
-type ServerConfig struct {
-	Address       string
+type NameServerConfig struct {
+	Bind          string
 	Port          int
+	Secret        string
 	LogQuery      bool
 	CompressQuery bool
 }
 
 type TomlConfiguration struct {
-	Storage StorageConfig
-	Server  ServerConfig
+	Api        ApiConfig
+	Storage    StorageConfig
+	NameServer NameServerConfig
 }
 
 type Configuration struct {
+	ApiServerBind string
+	ApiServerPort int
+
 	StorageDSN     string
 	StorageMaxIdle int
-	Bind           string
-	LogQuery       bool
-	CompressQuery  bool
+
+	NameServerBind   string
+	NameServerPort   int
+	NameServerSecret string
+
+	LogQuery      bool
+	CompressQuery bool
 }
 
 func LoadConfiguration(fileName string) (*Configuration, error) {
@@ -92,12 +107,17 @@ func parseTomlConfiguration(filename string) (*Configuration, error) {
 	}
 
 	config := &Configuration{
+		ApiServerBind: tomlConfiguration.Api.Bind,
+		ApiServerPort: tomlConfiguration.Api.Port,
+
 		StorageDSN:     tomlConfiguration.Storage.DSN,
 		StorageMaxIdle: tomlConfiguration.Storage.MaxIdle,
 
-		Bind:          tomlConfiguration.Server.Address,
-		LogQuery:      tomlConfiguration.Server.LogQuery,
-		CompressQuery: tomlConfiguration.Server.CompressQuery,
+		NameServerBind:   tomlConfiguration.NameServer.Bind,
+		NameServerPort:   tomlConfiguration.NameServer.Port,
+		NameServerSecret: tomlConfiguration.NameServer.Secret,
+		LogQuery:         tomlConfiguration.NameServer.LogQuery,
+		CompressQuery:    tomlConfiguration.NameServer.CompressQuery,
 	}
 	return config, err
 }
@@ -118,4 +138,20 @@ func parseJsonConfiguration(fileName string) (*Configuration, error) {
 	}
 
 	return config, nil
+}
+
+func (self *Configuration) ApiServerListen() string {
+	if self.ApiServerPort <= 0 {
+		return ""
+	}
+
+	return fmt.Sprintf("%s:%d", self.ApiServerBind, self.ApiServerPort)
+}
+
+func (self *Configuration) NameServerBindString() string {
+	if self.NameServerPort <= 0 {
+		return ""
+	}
+
+	return fmt.Sprintf("%s:%d", self.NameServerBind, self.NameServerPort)
 }

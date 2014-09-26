@@ -17,16 +17,17 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-package server
+package nameserver
 
 import (
+	"net"
+	"sort"
+	"strings"
+
 	log "code.google.com/p/log4go"
 	"github.com/ekarlso/gomdns/config"
 	"github.com/ekarlso/gomdns/db"
 	"github.com/miekg/dns"
-	"net"
-	"sort"
-	"strings"
 )
 
 func HandleQuery(writer dns.ResponseWriter, req *dns.Msg) {

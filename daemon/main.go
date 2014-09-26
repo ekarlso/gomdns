@@ -20,64 +20,63 @@
 package main
 
 import (
-	log "code.google.com/p/log4go"
 	"flag"
-	config "github.com/ekarlso/gomdns/config"
-	db "github.com/ekarlso/gomdns/db"
-	server "github.com/ekarlso/gomdns/server"
-	"github.com/miekg/dns"
 	"os"
 	"os/signal"
-	"strings"
 	"syscall"
+
+	log "code.google.com/p/log4go"
+	"github.com/ekarlso/gomdns/config"
+	"github.com/ekarlso/gomdns/db"
+	"github.com/ekarlso/gomdns/server"
 )
 
 var (
 	connection string
-	addr       string
-	tsig       string
-	bind       string
+	nsBind     string
+	nsPort     int
+	apiBind    string
+	apiPort    int
+
+	tsig string
 )
 
 func main() {
 	fileName := flag.String("config", "config.sample.toml", "Config file")
 	flag.StringVar(&connection, "connection", "designate:designate@tcp(localhost:3306)/designate", "Connection string to use for Database")
-	flag.StringVar(&addr, "addr", ":5053", "Addr to listen at")
+	flag.StringVar(&nsBind, "nameserver_bind", "", "Addr to listen at")
+	flag.IntVar(&nsPort, "nameserver_port", 5053, "Addr to listen at")
+	flag.StringVar(&apiBind, "api_bind", "", "Addr to listen at")
+	flag.IntVar(&apiPort, "api_port", 5080, "Addr to listen at")
 	flag.StringVar(&tsig, "tsig", "", "use MD5 hmac tsig: keyname:base64")
 
-	var name, secret string
 	flag.Usage = func() {
 		flag.PrintDefaults()
 	}
 	flag.Parse()
 
-	config, err := config.LoadConfiguration(*fileName)
+	cfg, err := config.LoadConfiguration(*fileName)
 
 	if err != nil {
 		return
 	}
 
-	log.Info("Database is at connection %s", config.StorageDSN)
-	if tsig != "" {
-		a := strings.SplitN(tsig, ":", 2)
-		name, secret = dns.Fqdn(a[0]), a[1] // fqdn the name, which everybody forgets...
-	}
+	cfg.NameServerBind = nsBind
+	cfg.NameServerPort = nsPort
+	cfg.ApiServerBind = apiBind
+	cfg.ApiServerPort = apiPort
+	cfg.StorageDSN = connection
 
-	config.Bind = addr
-	config.StorageDSN = connection
+	log.Info("Database is at connection %s", cfg.StorageDSN)
 
 	// Setup db access
-	if db.CheckDB(config.StorageDSN) != true {
+	if db.CheckDB(cfg.StorageDSN) != true {
 		log.Warn("Error verifying database connectivity, see above for errors")
 		os.Exit(1)
 	}
 
-	// registers a handlers at the root
-	dns.HandleFunc(".", server.HandleQuery)
-
-	// Serve on udp / tcp
-	go server.Serve("udp", addr, name, secret)
-	go server.Serve("tcp", addr, name, secret)
+	srv, err := server.NewServer(cfg)
+	srv.ListenAndServe()
 
 	sig := make(chan os.Signal)
 	signal.Notify(sig, syscall.SIGINT, syscall.SIGTERM)
