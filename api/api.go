@@ -36,7 +36,7 @@ type HttpServer struct {
 	shutdown    chan bool
 	config      *config.Configuration
 	readTimeout time.Duration
-	mux         *tiger.HostServeMux
+	mux         *tiger.TrieServeMux
 }
 
 func NewServer(config *config.Configuration) *HttpServer {
@@ -44,7 +44,7 @@ func NewServer(config *config.Configuration) *HttpServer {
 	self.httpPort = config.ApiServerListen()
 	self.shutdown = make(chan bool, 2)
 	self.config = config
-	self.mux = &tiger.NewHostServeMux()
+	self.mux = tiger.NewTrieServeMux()
 	return self
 }
 
@@ -58,12 +58,12 @@ func (self *HttpServer) Serve(listener net.Listener) {
 
 	self.conn = listener
 
-	self.mux.Handle("GET", "/stats", self.getStats)
+	self.mux.HandleFunc("GET", "/stats", self.getStats)
 
 	self.serveListener(listener, self.mux)
 }
 
-func (self *HttpServer) serveListener(listener net.Listener, m *tiger.HostServeMux) {
+func (self *HttpServer) serveListener(listener net.Listener, m *tiger.TrieServeMux) {
 	srv := &libhttp.Server{Handler: m, ReadTimeout: self.readTimeout}
 	if err := srv.Serve(listener); err != nil && !strings.Contains(err.Error(), "closed network") {
 		panic(err)
@@ -83,4 +83,5 @@ func (self *HttpServer) Close() {
 	}
 }
 
-func (self *HttpServer) getStats() {}
+func (self *HttpServer) getStats(libhttp.ResponseWriter, *libhttp.Request) {
+}
