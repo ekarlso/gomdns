@@ -25,6 +25,7 @@ import (
 	"github.com/ekarlso/gomdns/db"
 	"github.com/miekg/dns"
 	"net"
+	"sort"
 	"strings"
 )
 
@@ -117,6 +118,11 @@ func HandleRRSet(query dns.Question) (records []dns.RR, err error) {
 	ttl, err = getTtl(rrSet)
 
 	rrType := dns.StringToType[rrSet.Type]
+
+	// MX needs to be sorted by priority
+	if query.Qtype == dns.TypeMX {
+		sort.Sort(db.ByPriority{rrSet.Records})
+	}
 
 	header = dns.RR_Header{Name: rrSet.Name, Rrtype: rrType, Class: dns.ClassINET, Ttl: ttl}
 	for _, s := range rrSet.Records {
