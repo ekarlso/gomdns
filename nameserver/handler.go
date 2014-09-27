@@ -22,7 +22,6 @@ package nameserver
 import (
 	"net"
 	"sort"
-	"strconv"
 	"strings"
 
 	log "code.google.com/p/log4go"
@@ -103,23 +102,6 @@ func resolveRRSetTtl(rrSet db.RecordSet) (ttl uint32, err error) {
 	return ttl, err
 }
 
-// Extract weight, port and dname from a srv string.
-func extractSrv(srvString string) (uint16, uint16, string) {
-	data := strings.Split(srvString, " ")
-
-	var (
-		w uint64
-		p uint64
-		d string
-	)
-
-	w, _ = strconv.ParseUint(data[0], 10, 16)
-	p, _ = strconv.ParseUint(data[1], 10, 16)
-	d = data[2]
-
-	return uint16(w), uint16(p), d
-}
-
 // Handle a RRSet
 func ResolveQuery(query dns.Question) (records []dns.RR, err error) {
 	log.Info("Attempting to resolve RRSet")
@@ -142,8 +124,8 @@ func ResolveQuery(query dns.Question) (records []dns.RR, err error) {
 		return records, err
 	}
 
-	// MX needs to be sorted by priority
-	if query.Qtype == dns.TypeMX {
+	// Sort MX / SRV by priority
+	if query.Qtype == dns.TypeMX || query.Qtype == dns.TypeSRV {
 		sort.Sort(db.ByPriority{rrSet.Records})
 	}
 
@@ -242,7 +224,7 @@ func SOARecord(query dns.Question) (soa dns.RR, err error) {
 	soa = &dns.SOA{
 		Hdr:     header,
 		Ns:      rrSet.Name,
-		Mbox:    strings.Replace(zone.Email, "@", ".", -1) + ".",
+		Mbox:    formatEmail(zone.Email),
 		Serial:  uint32(zone.Serial),
 		Refresh: uint32(zone.Refresh),
 		Retry:   uint32(zone.Retry),
