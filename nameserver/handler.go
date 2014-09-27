@@ -64,7 +64,7 @@ func HandleQuery(writer dns.ResponseWriter, req *dns.Msg) {
 		log.Debug("Query: %v\n", m.String())
 	}
 
-	stats.AddToCount("query.total", 1)
+	stats.AddToMeter("query.total", 1)
 
 	if query.Qtype == dns.TypeSOA {
 		soa, _ := SOARecord(query)
@@ -117,7 +117,7 @@ func HandleRRSet(query dns.Question) (records []dns.RR, err error) {
 	rrTypeString = dns.TypeToString[query.Qtype]
 	queryName = strings.ToLower(query.Name)
 
-	stats.AddToCount("query."+strings.ToLower(rrTypeString), 1)
+	stats.AddToMeter("query."+strings.ToLower(rrTypeString), 1)
 
 	rrSet, err = db.GetRecordSet(queryName, rrTypeString)
 	if err != nil {

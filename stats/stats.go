@@ -29,9 +29,10 @@ var NameServerStats metrics.Registry
 
 func Setup() {
 	NameServerStats = metrics.NewRegistry()
+	NameServerStats.RunHealthchecks()
 }
 
-func AddToCount(key string, value int64) {
-	c := metrics.GetOrRegisterCounter(key, NameServerStats)
-	c.Inc(value)
+func AddToMeter(key string, value int64) {
+	c := metrics.GetOrRegisterMeter(key, NameServerStats)
+	c.Mark(value)
 }
