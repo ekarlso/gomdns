@@ -21,6 +21,8 @@
 package stats
 
 import (
+	"strings"
+
 	log "code.google.com/p/log4go"
 	"github.com/miekg/dns"
 	metrics "github.com/rcrowley/go-metrics"
@@ -41,7 +43,7 @@ func Setup() {
 }
 
 func AddToMeter(key string, value int64) {
-	c := metrics.GetOrRegisterMeter(key, NameServerStats)
+	c := metrics.GetOrRegisterMeter(strings.ToLower(key), NameServerStats)
 	c.Mark(value)
 }
 
