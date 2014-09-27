@@ -75,6 +75,10 @@ endif
 dependencies = github.com/miekg/dns \
 code.google.com/p/log4go \
 github.com/BurntSushi/toml \
+github.com/rcrowley/go-tigertonic \
+github.com/rcrowley/go-metrics \
+github.com/go-sql-driver/mysql \
+github.com/jmoiron/sqlx
 
 dependencies_paths := $(addprefix $(root)/src/,$(dependencies))
 
