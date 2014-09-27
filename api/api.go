@@ -22,13 +22,26 @@ package api
 import (
 	"net"
 	libhttp "net/http"
+	"net/url"
 	"strings"
 	"time"
 
 	log "code.google.com/p/log4go"
 	"github.com/ekarlso/gomdns/config"
+	"github.com/ekarlso/gomdns/stats"
+	metrics "github.com/rcrowley/go-metrics"
 	tiger "github.com/rcrowley/go-tigertonic"
 )
+
+type Request struct {
+}
+
+type Stats struct {
+	Stats []Stat
+}
+type Stat struct {
+	Name string
+}
 
 type HttpServer struct {
 	conn        net.Listener
@@ -48,9 +61,15 @@ func NewServer(config *config.Configuration) *HttpServer {
 	return self
 }
 
-func (self *HttpServer) ListenAndServe() (err error) {
+func (self *HttpServer) ListenAndServe() {
+	var err error
 	self.conn, err = net.Listen("tcp", self.httpPort)
-	return err
+
+	if err != nil {
+		log.Error("Listen: ", err)
+	}
+
+	self.Serve(self.conn)
 }
 
 func (self *HttpServer) Serve(listener net.Listener) {
@@ -58,7 +77,7 @@ func (self *HttpServer) Serve(listener net.Listener) {
 
 	self.conn = listener
 
-	self.mux.HandleFunc("GET", "/stats", self.getStats)
+	self.mux.Handle("GET", "/stats", tiger.Marshaled(self.getStats))
 
 	self.serveListener(listener, self.mux)
 }
@@ -83,5 +102,6 @@ func (self *HttpServer) Close() {
 	}
 }
 
-func (self *HttpServer) getStats(libhttp.ResponseWriter, *libhttp.Request) {
+func (self *HttpServer) getStats(u *url.URL, h libhttp.Header, req *Request) (int, libhttp.Header, metrics.Registry, error) {
+	return libhttp.StatusOK, nil, stats.NameServerStats, nil
 }

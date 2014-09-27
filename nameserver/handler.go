@@ -27,7 +27,9 @@ import (
 	log "code.google.com/p/log4go"
 	"github.com/ekarlso/gomdns/config"
 	"github.com/ekarlso/gomdns/db"
+	"github.com/ekarlso/gomdns/stats"
 	"github.com/miekg/dns"
+	//metrics "github.com/rcrowley/go-metrics"
 )
 
 func HandleQuery(writer dns.ResponseWriter, req *dns.Msg) {
@@ -61,6 +63,8 @@ func HandleQuery(writer dns.ResponseWriter, req *dns.Msg) {
 	if cfg.LogQuery == true {
 		log.Debug("Query: %v\n", m.String())
 	}
+
+	stats.AddToCount("query.total", 1)
 
 	if query.Qtype == dns.TypeSOA {
 		soa, _ := SOARecord(query)
@@ -101,16 +105,21 @@ func getTtl(rrSet db.RecordSet) (ttl uint32, err error) {
 func HandleRRSet(query dns.Question) (records []dns.RR, err error) {
 	log.Info("Attempting to resolve RRSet")
 
-	name := strings.ToLower(query.Name)
-
 	// Attempt to resolve a RRSet and it's Records
 	var (
-		rrSet  db.RecordSet
-		header dns.RR_Header
-		ttl    uint32
+		queryName    string
+		rrSet        db.RecordSet
+		rrTypeString string
+		header       dns.RR_Header
+		ttl          uint32
 	)
 
-	rrSet, err = db.GetRecordSet(name, dns.TypeToString[query.Qtype])
+	rrTypeString = dns.TypeToString[query.Qtype]
+	queryName = strings.ToLower(query.Name)
+
+	stats.AddToCount("query."+strings.ToLower(rrTypeString), 1)
+
+	rrSet, err = db.GetRecordSet(queryName, rrTypeString)
 	if err != nil {
 		log.Error("RecordSet not found", err)
 		return records, err
@@ -167,10 +176,15 @@ func SOARecord(query dns.Question) (soa dns.RR, err error) {
 		return nil, err
 	}
 
-	header := dns.RR_Header{Name: zone.Name, Rrtype: dns.TypeSOA, Class: dns.ClassINET, Ttl: zone.Ttl}
+	header := dns.RR_Header{
+		Name:   zone.Name,
+		Rrtype: dns.TypeSOA,
+		Class:  dns.ClassINET,
+		Ttl:    zone.Ttl}
 
 	// Ttl can be stored on the rrset.Ttl or default to zone.Ttl
 	ttl, err = getTtl(rrSet)
+
 	soa = &dns.SOA{
 		Hdr:     header,
 		Ns:      rrSet.Name,

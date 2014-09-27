@@ -29,6 +29,7 @@ import (
 	"github.com/ekarlso/gomdns/config"
 	"github.com/ekarlso/gomdns/db"
 	"github.com/ekarlso/gomdns/server"
+	"github.com/ekarlso/gomdns/stats"
 )
 
 var (
@@ -74,6 +75,8 @@ func main() {
 		log.Warn("Error verifying database connectivity, see above for errors")
 		os.Exit(1)
 	}
+
+	stats.Setup()
 
 	srv, err := server.NewServer(cfg)
 	srv.ListenAndServe()
