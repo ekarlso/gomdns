@@ -21,18 +21,30 @@
 package stats
 
 import (
-	//log "code.google.com/p/log4go"
+	log "code.google.com/p/log4go"
+	"github.com/miekg/dns"
 	metrics "github.com/rcrowley/go-metrics"
+)
+
+const (
+	QueryKey = "query"
 )
 
 var NameServerStats metrics.Registry
 
 func Setup() {
+	log.Debug("Registering default metrics")
 	NameServerStats = metrics.NewRegistry()
-	NameServerStats.RunHealthchecks()
+	for k, _ := range dns.StringToType {
+		MeterQuery(k, 0)
+	}
 }
 
 func AddToMeter(key string, value int64) {
 	c := metrics.GetOrRegisterMeter(key, NameServerStats)
 	c.Mark(value)
+}
+
+func MeterQuery(qType string, value int64) {
+	AddToMeter(QueryKey+"."+qType, value)
 }

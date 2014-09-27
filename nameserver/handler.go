@@ -29,7 +29,6 @@ import (
 	"github.com/ekarlso/gomdns/db"
 	"github.com/ekarlso/gomdns/stats"
 	"github.com/miekg/dns"
-	//metrics "github.com/rcrowley/go-metrics"
 )
 
 func HandleQuery(writer dns.ResponseWriter, req *dns.Msg) {
