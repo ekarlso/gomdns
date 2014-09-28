@@ -242,28 +242,28 @@ func resolveRRSet(query dns.Question, rrSet db.RecordSet) (records []dns.RR, err
 		case dns.TypeNS:
 			record = &dns.NS{Hdr: header, Ns: r.Data}
 		case dns.TypeSOA:
-			ns, mbox, serial, refresh, retry, expire, minttl := extractSOA(r.Data)
-
+			soa := r.ExtractSOA()
+			log.Debug(soa)
 			record = &dns.SOA{
 				Hdr:     header,
-				Ns:      ns,
-				Mbox:    mbox,
-				Serial:  serial,
-				Refresh: refresh,
-				Retry:   retry,
-				Expire:  expire,
-				Minttl:  minttl,
+				Ns:      soa.Ns,
+				Mbox:    soa.Mbox,
+				Serial:  soa.Serial,
+				Refresh: soa.Refresh,
+				Retry:   soa.Retry,
+				Expire:  soa.Expire,
+				Minttl:  soa.Minttl,
 			}
 
 		case dns.TypeSRV:
-			weight, port, target := extractSrv(r.Data)
+			srv := r.ExtractSrv()
 
 			record = &dns.SRV{
 				Hdr:      header,
 				Priority: uint16(r.Priority.Int64),
-				Weight:   weight,
-				Port:     port,
-				Target:   target,
+				Weight:   srv.Weight,
+				Port:     srv.Port,
+				Target:   srv.Target,
 			}
 		case dns.TypeTXT:
 			var txt []string

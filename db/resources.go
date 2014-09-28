@@ -21,7 +21,34 @@ package db
 
 import (
 	"database/sql"
+	"strconv"
+	"strings"
 )
+
+func parseUint16(s string) uint16 {
+	u, _ := strconv.ParseUint(s, 10, 0)
+	return uint16(u)
+}
+func parseUint32(s string) uint32 {
+	u, _ := strconv.ParseUint(s, 10, 0)
+	return uint32(u)
+}
+
+type Soa struct {
+	Ns      string
+	Mbox    string
+	Serial  uint32
+	Refresh uint32
+	Retry   uint32
+	Expire  uint32
+	Minttl  uint32
+}
+
+type Srv struct {
+	Weight uint16
+	Port   uint16
+	Target string
+}
 
 // Designate Zone
 type Zone struct {
@@ -79,4 +106,29 @@ type Record struct {
 	Data        string
 	Priority    sql.NullInt64
 	Hash        string
+}
+
+// Extract weight, port and dname from a srv string.
+func (s Record) ExtractSrv() Srv {
+	data := strings.Split(s.Data, " ")
+
+	return Srv{
+		Weight: parseUint16(data[0]),
+		Port:   parseUint16(data[1]),
+		Target: data[2],
+	}
+}
+
+func (s Record) ExtractSOA() Soa {
+	data := strings.Split(s.Data, " ")
+
+	return Soa{
+		Ns:      data[0],
+		Mbox:    data[1],
+		Serial:  parseUint32(data[2]),
+		Refresh: parseUint32(data[3]),
+		Retry:   parseUint32(data[4]),
+		Expire:  parseUint32(data[5]),
+		Minttl:  parseUint32(data[6]),
+	}
 }

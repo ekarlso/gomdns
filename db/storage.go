@@ -56,6 +56,8 @@ func GetZoneRecordSets(zone Zone, rrType string, notType string) (rrSets []Recor
 	cfg := config.GetConfig()
 	conn, _ := Connect(cfg.StorageDSN)
 
+	defer conn.Close()
+
 	stmt := "SELECT id, domain_id, name, type, ttl FROM recordsets WHERE domain_id = ?"
 	if rrType != "" {
 		stmt += " AND type = ?"
@@ -88,6 +90,7 @@ func GetRRSetRecords(rrSet RecordSet) (records []*Record, err error) {
 	cfg := config.GetConfig()
 	conn, _ := Connect(cfg.StorageDSN)
 
+	defer conn.Close()
 	err = conn.Select(&records, "SELECT id, domain_id, recordset_id, data, priority, hash FROM records WHERE recordset_id = ?", rrSet.Id)
 	if err != nil {
 		log.Error("Error fetching records for RRset %s", err)
