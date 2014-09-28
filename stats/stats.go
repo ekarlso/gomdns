@@ -23,6 +23,7 @@ import (
 	"strings"
 
 	log "code.google.com/p/log4go"
+	"github.com/ekarlso/gomdns/config"
 	"github.com/miekg/dns"
 	metrics "github.com/rcrowley/go-metrics"
 )
@@ -33,12 +34,13 @@ const (
 
 var NameServerStats metrics.Registry
 
-func Setup() {
+func Setup(cfg *config.Configuration) {
 	log.Debug("Registering default metrics")
 	NameServerStats = metrics.NewRegistry()
 	for k, _ := range dns.StringToType {
 		MeterQuery(k, 0)
 	}
+	setUp(cfg)
 }
 
 func AddToMeter(key string, value int64) {
