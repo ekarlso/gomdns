@@ -70,6 +70,7 @@ func main() {
 
 	log.Info("Database is at connection %s", cfg.StorageDSN)
 
+	db.Setup(cfg.StorageDSN)
 	// Setup db access
 	if db.CheckDB(cfg.StorageDSN) != true {
 		log.Warn("Error verifying database connectivity, see above for errors")

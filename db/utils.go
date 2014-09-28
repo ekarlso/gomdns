@@ -25,30 +25,31 @@ import (
 	"github.com/jmoiron/sqlx"
 )
 
-// Connect and return a connection
-func Connect(dsn string) (conn *sqlx.DB, err error) {
-	log.Info("Connecting to %s", dsn)
-	conn, err = sqlx.Open("mysql", dsn)
+var Database *sqlx.DB
 
+// Connect and return a connection
+func Setup(dsn string) (err error) {
+	log.Info("Connecting to %s", dsn)
+
+	db, err := sqlx.Open("mysql", dsn)
 	if err != nil {
 		log.Error(err)
-		return conn, err
+		return err
 	}
 
-	err = conn.Ping()
+	err = db.Ping()
 	if err != nil {
 		log.Error("Error connecting to db %s", err)
-		return conn, err
+		return err
 	}
 
-	return conn, nil
+	Database = db
+	return nil
 }
 
-// Check that the DB is valid.
+// Check that the Database is valid.
 func CheckDB(dsn string) bool {
-	conn, _ := Connect(dsn)
-
-	_, err := conn.Exec("SELECT * FROM domains")
+	_, err := Database.Exec("SELECT * FROM domains")
 	if err != nil {
 		log.Error(err)
 		return false

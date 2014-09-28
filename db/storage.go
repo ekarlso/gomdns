@@ -21,16 +21,11 @@ package db
 
 import (
 	log "code.google.com/p/log4go"
-	config "github.com/ekarlso/gomdns/config"
 )
 
 func GetZoneById(zoneId string) (z Zone, err error) {
-	cfg := config.GetConfig()
-	conn, _ := Connect(cfg.StorageDSN)
+	err = Database.Get(&z, "SELECT id, version, name, email, ttl, serial, refresh, retry, expire, minimum FROM domains WHERE id = ?", zoneId)
 
-	defer conn.Close()
-
-	err = conn.Get(&z, "SELECT id, version, name, email, ttl, serial, refresh, retry, expire, minimum FROM domains WHERE id = ?", zoneId)
 	if err != nil {
 		log.Debug("Failed getting zone")
 	}
@@ -39,12 +34,8 @@ func GetZoneById(zoneId string) (z Zone, err error) {
 }
 
 func GetZoneByName(zoneName string) (z Zone, err error) {
-	cfg := config.GetConfig()
-	conn, _ := Connect(cfg.StorageDSN)
+	err = Database.Get(&z, "SELECT id, version, name, email, ttl, serial, refresh, retry, expire, minimum FROM domains WHERE name = ?", zoneName)
 
-	defer conn.Close()
-
-	err = conn.Get(&z, "SELECT id, version, name, email, ttl, serial, refresh, retry, expire, minimum FROM domains WHERE name = ?", zoneName)
 	if err != nil {
 		log.Debug("Failed getting zone")
 	}
@@ -53,11 +44,6 @@ func GetZoneByName(zoneName string) (z Zone, err error) {
 }
 
 func GetZoneRecordSets(zone Zone, rrType string, notType string) (rrSets []RecordSet, err error) {
-	cfg := config.GetConfig()
-	conn, _ := Connect(cfg.StorageDSN)
-
-	defer conn.Close()
-
 	stmt := "SELECT id, domain_id, name, type, ttl FROM recordsets WHERE domain_id = ?"
 	if rrType != "" {
 		stmt += " AND type = ?"
@@ -66,7 +52,8 @@ func GetZoneRecordSets(zone Zone, rrType string, notType string) (rrSets []Recor
 		stmt += " AND type != ?"
 	}
 
-	err = conn.Select(&rrSets, stmt, zone.Id, notType)
+	err = Database.Select(&rrSets, stmt, zone.Id, notType)
+
 	if err != nil {
 		log.Error("Error fetching RRSets for %v", zone.Id)
 		log.Debug(err)
@@ -87,11 +74,8 @@ func GetZoneRecordSets(zone Zone, rrType string, notType string) (rrSets []Recor
 }
 
 func GetRRSetRecords(rrSet RecordSet) (records []*Record, err error) {
-	cfg := config.GetConfig()
-	conn, _ := Connect(cfg.StorageDSN)
+	err = Database.Select(&records, "SELECT id, domain_id, recordset_id, data, priority, hash FROM records WHERE recordset_id = ?", rrSet.Id)
 
-	defer conn.Close()
-	err = conn.Select(&records, "SELECT id, domain_id, recordset_id, data, priority, hash FROM records WHERE recordset_id = ?", rrSet.Id)
 	if err != nil {
 		log.Error("Error fetching records for RRset %s", err)
 	}
@@ -100,12 +84,8 @@ func GetRRSetRecords(rrSet RecordSet) (records []*Record, err error) {
 }
 
 func GetRecordSet(rrName string, rrType string) (rrSet RecordSet, err error) {
-	cfg := config.GetConfig()
-	conn, _ := Connect(cfg.StorageDSN)
+	err = Database.Get(&rrSet, "SELECT id, domain_id, name, type, ttl from recordsets WHERE name = ? AND type = ?", rrName, rrType)
 
-	defer conn.Close()
-
-	err = conn.Get(&rrSet, "SELECT id, domain_id, name, type, ttl from recordsets WHERE name = ? AND type = ?", rrName, rrType)
 	if err != nil {
 		log.Debug("Failed getting RRSet")
 		return rrSet, err
