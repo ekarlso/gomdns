@@ -121,8 +121,6 @@ func ResolveXFR(query dns.Question, writer dns.ResponseWriter, request *dns.Msg)
 		return err
 	}
 
-	log.Debug("Found %d records", len(rrSets))
-
 	records = append(records, soa[0])
 
 	for i, _ := range rrSets {
@@ -243,7 +241,6 @@ func resolveRRSet(query dns.Question, rrSet db.RecordSet) (records []dns.RR, err
 			record = &dns.NS{Hdr: header, Ns: r.Data}
 		case dns.TypeSOA:
 			soa := r.ExtractSOA()
-			log.Debug(soa)
 			record = &dns.SOA{
 				Hdr:     header,
 				Ns:      soa.Ns,
