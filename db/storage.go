@@ -52,6 +52,50 @@ func GetZoneByName(zoneName string) (z Zone, err error) {
 	return z, err
 }
 
+func GetZoneRecordSets(zone Zone, rrType string, notType string) (rrSets []RecordSet, err error) {
+	cfg := config.GetConfig()
+	conn, _ := Connect(cfg.StorageDSN)
+
+	stmt := "SELECT id, domain_id, name, type, ttl FROM recordsets WHERE domain_id = ?"
+	if rrType != "" {
+		stmt += " AND type = ?"
+	}
+	if notType != "" {
+		stmt += " AND type != ?"
+	}
+
+	err = conn.Select(&rrSets, stmt, zone.Id, notType)
+	if err != nil {
+		log.Error("Error fetching RRSets for %v", zone.Id)
+		log.Debug(err)
+		return rrSets, err
+	}
+
+	for i, _ := range rrSets {
+		records, err := GetRRSetRecords(rrSets[i])
+
+		if err != nil {
+			return rrSets, err
+		}
+
+		rrSets[i].Records = records
+	}
+
+	return rrSets, err
+}
+
+func GetRRSetRecords(rrSet RecordSet) (records []*Record, err error) {
+	cfg := config.GetConfig()
+	conn, _ := Connect(cfg.StorageDSN)
+
+	err = conn.Select(&records, "SELECT id, domain_id, recordset_id, data, priority, hash FROM records WHERE recordset_id = ?", rrSet.Id)
+	if err != nil {
+		log.Error("Error fetching records for RRset %s", err)
+	}
+	return records, err
+
+}
+
 func GetRecordSet(rrName string, rrType string) (rrSet RecordSet, err error) {
 	cfg := config.GetConfig()
 	conn, _ := Connect(cfg.StorageDSN)
@@ -64,12 +108,8 @@ func GetRecordSet(rrName string, rrType string) (rrSet RecordSet, err error) {
 		return rrSet, err
 	}
 
-	records := []*Record{}
-
-	err = conn.Select(&records, "SELECT id, domain_id, recordset_id, data, priority, hash FROM records WHERE recordset_id = ?", rrSet.Id)
-	if err != nil {
-		log.Error("Error fetching records for RRset %s", err)
-	}
+	records, err := GetRRSetRecords(rrSet)
 	rrSet.Records = records
+
 	return rrSet, err
 }
