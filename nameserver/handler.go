@@ -31,16 +31,32 @@ import (
 	"github.com/miekg/dns"
 )
 
-func HandleQuery(writer dns.ResponseWriter, req *dns.Msg) {
-	cfg := config.GetConfig()
+func Handler(writer dns.ResponseWriter, request *dns.Msg) {
+	var err error
 
-	query := req.Question[0]
+	query := request.Question[0]
 
 	log.Info("Received query for %s type %s from %s", query.Name, query.Qtype, writer.RemoteAddr())
 
-	// Create a new msg and set the reply
+	if query.Qtype == dns.TypeAXFR || query.Qtype == dns.TypeIXFR {
+		ResolveXFR(query, writer, request)
+		return
+	}
+	err = ResolveQuery(writer, request)
+
+	if err != nil {
+		log.Error("Something went bad: %s", err)
+		return
+	}
+}
+
+func ResolveQuery(writer dns.ResponseWriter, request *dns.Msg) (err error) {
+	cfg := config.GetConfig()
+
+	query := request.Question[0]
+
 	m := new(dns.Msg)
-	m.SetReply(req)
+	m.SetReply(request)
 
 	// Compress or not
 	m.Compress = cfg.CompressQuery
@@ -49,38 +65,114 @@ func HandleQuery(writer dns.ResponseWriter, req *dns.Msg) {
 
 	m.Answer = make([]dns.RR, 0, 10)
 
+	if cfg.LogQuery == true {
+		log.Debug("Query: %v\n", m.String())
+	}
+
 	// Deferred write
 	defer func() {
 		err := writer.WriteMsg(m)
+
 		if err != nil {
 			log.Trace(err)
 			return
 		}
 	}()
 
-	// Log the reply
-	if cfg.LogQuery == true {
-		log.Debug("Query: %v\n", m.String())
-	}
-
 	stats.AddToMeter("query.total", 1)
 
-	if query.Qtype == dns.TypeSOA {
-		soa, _ := SOARecord(query)
-
-		m.Answer = []dns.RR{soa}
-		log.Info(m.Answer)
-		return
-	}
-
-	records, err := ResolveQuery(query)
-
-	if err != nil {
-		log.Error("Something went bad: %s", err)
-		return
-	}
+	records, err := ResolveRRSetQuery(query)
 
 	m.Answer = records
+	return err
+}
+
+func ResolveXFR(query dns.Question, writer dns.ResponseWriter, request *dns.Msg) (err error) {
+	// Handle an A|I XFR
+
+	channel := make(chan *dns.Envelope)
+	transfer := new(dns.Transfer)
+	defer close(channel)
+
+	err = transfer.Out(writer, request, channel)
+	if err != nil {
+		return
+	}
+
+	var (
+		records []dns.RR
+		rrSets  []db.RecordSet
+		zone    db.Zone
+	)
+
+	zone, err = db.GetZoneByName(strings.ToLower(query.Name))
+
+	q := dns.Question{Qtype: dns.TypeSOA, Name: query.Name}
+	soa, err := ResolveRRSetQuery(q)
+
+	if err != nil {
+		log.Error("Error getting SOA for XFR")
+		return nil
+	}
+
+	rrSets, err = db.GetZoneRecordSets(zone, "", "SOA")
+	if err != nil {
+		log.Debug("Error getting rrSets and records")
+		return err
+	}
+
+	log.Debug("Found %d records", len(rrSets))
+
+	records = append(records, soa[0])
+
+	for i, _ := range rrSets {
+		rrSetRR, err := resolveRRSet(query, rrSets[i])
+
+		if err != nil {
+			log.Error("Error getting RRs for %v, error %v.", query.Name, err)
+			return err
+		}
+
+		for j, _ := range rrSetRR {
+			records = append(records, rrSetRR[j])
+		}
+	}
+
+	records = append(records, soa[0])
+
+	log.Debug("Records %v", len(records))
+
+	envelope := &dns.Envelope{RR: records}
+	channel <- envelope
+	writer.Hijack()
+
+	return err
+}
+
+// Handle a RRSet
+func ResolveRRSetQuery(query dns.Question) (records []dns.RR, err error) {
+	log.Info("Attempting to resolve RRSet")
+
+	// Attempt to resolve a RRSet and it's Records
+	var (
+		queryName string
+		rrType    string
+		rrSet     db.RecordSet
+	)
+
+	rrType = dns.TypeToString[query.Qtype]
+	queryName = strings.ToLower(query.Name)
+
+	stats.AddToMeter("query."+strings.ToLower(rrType), 1)
+
+	rrSet, err = db.GetRecordSet(queryName, rrType)
+	if err != nil {
+		log.Error("RecordSet not found", err)
+		return records, err
+	}
+
+	records, err = resolveRRSet(query, rrSet)
+	return records, err
 }
 
 // Extract Ttl either from a RRset or a Zone
@@ -102,60 +194,40 @@ func resolveRRSetTtl(rrSet db.RecordSet) (ttl uint32, err error) {
 	return ttl, err
 }
 
-// Handle a RRSet
-func ResolveQuery(query dns.Question) (records []dns.RR, err error) {
-	log.Info("Attempting to resolve RRSet")
-
-	// Attempt to resolve a RRSet and it's Records
-	var (
-		queryName string
-		rrType    string
-		rrSet     db.RecordSet
-	)
-
-	rrType = dns.TypeToString[query.Qtype]
-	queryName = strings.ToLower(query.Name)
-
-	stats.AddToMeter("query."+strings.ToLower(rrType), 1)
-
-	rrSet, err = db.GetRecordSet(queryName, rrType)
-	if err != nil {
-		log.Error("RecordSet not found", err)
-		return records, err
-	}
-
-	// Sort MX / SRV by priority
-	if query.Qtype == dns.TypeMX || query.Qtype == dns.TypeSRV {
-		sort.Sort(db.ByPriority{rrSet.Records})
-	}
-
-	records, err = resolveRRSet(query, rrSet)
-	return records, err
-}
-
+// Create a header
 func resolveRRSetHeader(rrSet db.RecordSet) (header dns.RR_Header, err error) {
-	var (
-		ttl uint32
-	)
+	var ttl uint32
 
 	ttl, err = resolveRRSetTtl(rrSet)
 	if err != nil {
 		return header, err
 	}
-
 	rrType := dns.StringToType[rrSet.Type]
 
 	header = dns.RR_Header{Name: rrSet.Name, Rrtype: rrType, Class: dns.ClassINET, Ttl: ttl}
 	return header, err
 }
 
+// Create dns.RR records from a query and rrSet
 func resolveRRSet(query dns.Question, rrSet db.RecordSet) (records []dns.RR, err error) {
+	if len(rrSet.Records) == 0 {
+		log.Debug("No records on RRSet %v", rrSet.Id)
+		return records, err
+	}
+
+	rrType := dns.StringToType[rrSet.Type]
+
+	// Sort MX / SRV by priority
+	if rrType == dns.TypeMX || rrType == dns.TypeSRV {
+		sort.Sort(db.ByPriority{rrSet.Records})
+	}
+
 	header, err := resolveRRSetHeader(rrSet)
 
 	for _, r := range rrSet.Records {
 		var record dns.RR
 
-		switch query.Qtype {
+		switch rrType {
 		case dns.TypeA:
 			record = &dns.A{Hdr: header, A: net.ParseIP(r.Data)}
 		case dns.TypeAAAA:
@@ -169,6 +241,20 @@ func resolveRRSet(query dns.Question, rrSet db.RecordSet) (records []dns.RR, err
 				Mx:         r.Data}
 		case dns.TypeNS:
 			record = &dns.NS{Hdr: header, Ns: r.Data}
+		case dns.TypeSOA:
+			ns, mbox, serial, refresh, retry, expire, minttl := extractSOA(r.Data)
+
+			record = &dns.SOA{
+				Hdr:     header,
+				Ns:      ns,
+				Mbox:    mbox,
+				Serial:  serial,
+				Refresh: refresh,
+				Retry:   retry,
+				Expire:  expire,
+				Minttl:  minttl,
+			}
+
 		case dns.TypeSRV:
 			weight, port, target := extractSrv(r.Data)
 
@@ -195,42 +281,6 @@ func resolveRRSet(query dns.Question, rrSet db.RecordSet) (records []dns.RR, err
 			log.Error("Unhandled record")
 		}
 	}
+
 	return records, err
-}
-
-func SOARecord(query dns.Question) (soa dns.RR, err error) {
-	name := strings.ToLower(query.Name)
-
-	var (
-		ttl uint32
-	)
-
-	zone, err := db.GetZoneByName(name)
-	rrSet, err := db.GetRecordSet(name, "SOA")
-
-	if err != nil {
-		return nil, err
-	}
-
-	header := dns.RR_Header{
-		Name:   zone.Name,
-		Rrtype: dns.TypeSOA,
-		Class:  dns.ClassINET,
-		Ttl:    zone.Ttl}
-
-	// Ttl can be stored on the rrset.Ttl or default to zone.Ttl
-	ttl, err = resolveRRSetTtl(rrSet)
-
-	soa = &dns.SOA{
-		Hdr:     header,
-		Ns:      rrSet.Name,
-		Mbox:    formatEmail(zone.Email),
-		Serial:  uint32(zone.Serial),
-		Refresh: uint32(zone.Refresh),
-		Retry:   uint32(zone.Retry),
-		Expire:  uint32(zone.Expire),
-		Minttl:  ttl,
-	}
-
-	return soa, err
 }

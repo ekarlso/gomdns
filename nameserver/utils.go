@@ -41,6 +41,24 @@ func extractSrv(srvString string) (uint16, uint16, string) {
 	return uint16(w), uint16(p), d
 }
 
-func formatEmail(emailString string) string {
-	return strings.Replace(emailString, "@", ".", -1) + "."
+func extractSOA(soaString string) (string, string, uint32, uint32, uint32, uint32, uint32) {
+	data := strings.Split(soaString, " ")
+
+	var (
+		ns      string = data[0]
+		mbox    string = data[1]
+		serial  uint64
+		refresh uint64
+		retry   uint64
+		expire  uint64
+		minttl  uint64
+	)
+
+	serial, _ = strconv.ParseUint(data[2], 10, 0)
+	refresh, _ = strconv.ParseUint(data[3], 10, 0)
+	retry, _ = strconv.ParseUint(data[4], 10, 0)
+	expire, _ = strconv.ParseUint(data[5], 10, 0)
+	minttl, _ = strconv.ParseUint(data[6], 10, 0)
+
+	return ns, mbox, uint32(serial), uint32(refresh), uint32(retry), uint32(expire), uint32(minttl)
 }

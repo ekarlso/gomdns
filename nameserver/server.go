@@ -46,7 +46,7 @@ func (s *NameServer) ListenAndServe() {
 		name, secret = dns.Fqdn(a[0]), a[1] // fqdn the name, which everybody forgets...
 	}
 
-	dns.HandleFunc(".", HandleQuery)
+	dns.HandleFunc(".", Handler)
 	go s.Serve("tcp", s.config.NameServerBindString(), name, secret)
 	go s.Serve("udp", s.config.NameServerBindString(), name, secret)
 
