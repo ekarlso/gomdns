@@ -158,15 +158,15 @@ func parseJsonConfiguration(fileName string) (*Configuration, error) {
 
 func (self *Configuration) ApiServerListen() string {
 	if self.ApiServerPort <= 0 {
-		return ""
+		return ":5080"
 	}
 
 	return fmt.Sprintf("%s:%d", self.ApiServerBind, self.ApiServerPort)
 }
 
-func (self *Configuration) NameServerBindString() string {
+func (self *Configuration) NameServerListen() string {
 	if self.NameServerPort <= 0 {
-		return ""
+		return ":5053"
 	}
 
 	return fmt.Sprintf("%s:%d", self.NameServerBind, self.NameServerPort)

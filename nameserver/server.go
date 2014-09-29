@@ -47,8 +47,8 @@ func (s *NameServer) ListenAndServe() {
 	}
 
 	dns.HandleFunc(".", Handler)
-	go s.Serve("tcp", s.config.NameServerBindString(), name, secret)
-	go s.Serve("udp", s.config.NameServerBindString(), name, secret)
+	go s.Serve("tcp", s.config.NameServerListen(), name, secret)
+	go s.Serve("udp", s.config.NameServerListen(), name, secret)
 
 	s.stopped = false
 }
