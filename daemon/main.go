@@ -43,7 +43,7 @@ var (
 )
 
 func main() {
-	fileName := flag.String("config", "config.sample.toml", "Config file")
+	fileName := flag.String("config", "config.toml", "Config file")
 	flag.StringVar(&connection, "connection", "", "Connection string to use for Database")
 	flag.StringVar(&nsBind, "nameserver_bind", "", "Addr to listen at")
 	flag.IntVar(&nsPort, "nameserver_port", 0, "Addr to listen at")
