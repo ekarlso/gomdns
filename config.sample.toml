@@ -1,5 +1,7 @@
 [storage]
 dsn = "designate:designate@tcp(localhost:3306)/designate"
+maxidle = 5
+maxopen = 10
 
 [server]
 address = ""

@@ -45,7 +45,7 @@ func Setup(cfg *config.Configuration) (err error) {
 		return err
 	}
 
-	db.SetMaxOpenConns(cfg.StorageMaxConnections)
+	db.SetMaxOpenConns(cfg.StorageMaxOpen)
 	db.SetMaxIdleConns(cfg.StorageMaxIdle)
 
 	Database = db
