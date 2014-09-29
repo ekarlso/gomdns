@@ -38,6 +38,9 @@ func Handler(writer dns.ResponseWriter, request *dns.Msg) {
 
 	log.Info("Received query for %s type %s from %s", query.Name, query.Qtype, writer.RemoteAddr())
 
+	stats.AddToMeter("query.total", 1)
+	stats.AddToMeter("query."+strings.ToLower(dns.TypeToString[query.Qtype]), 1)
+
 	if query.Qtype == dns.TypeAXFR || query.Qtype == dns.TypeIXFR {
 		ResolveXFR(query, writer, request)
 		return
@@ -78,8 +81,6 @@ func ResolveQuery(writer dns.ResponseWriter, request *dns.Msg) (err error) {
 			return
 		}
 	}()
-
-	stats.AddToMeter("query.total", 1)
 
 	records, err := ResolveRRSetQuery(query)
 
@@ -160,8 +161,6 @@ func ResolveRRSetQuery(query dns.Question) (records []dns.RR, err error) {
 
 	rrType = dns.TypeToString[query.Qtype]
 	queryName = strings.ToLower(query.Name)
-
-	stats.AddToMeter("query."+strings.ToLower(rrType), 1)
 
 	rrSet, err = db.GetRecordSet(queryName, rrType)
 	if err != nil {
