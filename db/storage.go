@@ -24,6 +24,9 @@ import (
 )
 
 func GetZoneById(zoneId string) (z Zone, err error) {
+	Database.Begin()
+	defer Database.Close()
+
 	err = Database.Get(&z, "SELECT id, version, name, email, ttl, serial, refresh, retry, expire, minimum FROM domains WHERE id = ?", zoneId)
 
 	if err != nil {
@@ -34,6 +37,9 @@ func GetZoneById(zoneId string) (z Zone, err error) {
 }
 
 func GetZoneByName(zoneName string) (z Zone, err error) {
+	Database.Begin()
+	defer Database.Close()
+
 	err = Database.Get(&z, "SELECT id, version, name, email, ttl, serial, refresh, retry, expire, minimum FROM domains WHERE name = ?", zoneName)
 
 	if err != nil {
@@ -44,6 +50,9 @@ func GetZoneByName(zoneName string) (z Zone, err error) {
 }
 
 func GetZoneRecordSets(zone Zone, rrType string, notType string) (rrSets []RecordSet, err error) {
+	Database.Begin()
+	defer Database.Close()
+
 	stmt := "SELECT id, domain_id, name, type, ttl FROM recordsets WHERE domain_id = ?"
 	if rrType != "" {
 		stmt += " AND type = ?"
@@ -74,6 +83,9 @@ func GetZoneRecordSets(zone Zone, rrType string, notType string) (rrSets []Recor
 }
 
 func GetRRSetRecords(rrSet RecordSet) (records []*Record, err error) {
+	Database.Begin()
+	defer Database.Close()
+
 	err = Database.Select(&records, "SELECT id, domain_id, recordset_id, data, priority, hash FROM records WHERE recordset_id = ?", rrSet.Id)
 
 	if err != nil {
@@ -84,6 +96,9 @@ func GetRRSetRecords(rrSet RecordSet) (records []*Record, err error) {
 }
 
 func GetRecordSet(rrName string, rrType string) (rrSet RecordSet, err error) {
+	Database.Begin()
+	defer Database.Close()
+
 	err = Database.Get(&rrSet, "SELECT id, domain_id, name, type, ttl from recordsets WHERE name = ? AND type = ?", rrName, rrType)
 
 	if err != nil {
