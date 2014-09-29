@@ -44,11 +44,11 @@ var (
 
 func main() {
 	fileName := flag.String("config", "config.sample.toml", "Config file")
-	flag.StringVar(&connection, "connection", "designate:designate@tcp(localhost:3306)/designate", "Connection string to use for Database")
+	flag.StringVar(&connection, "connection", "", "Connection string to use for Database")
 	flag.StringVar(&nsBind, "nameserver_bind", "", "Addr to listen at")
-	flag.IntVar(&nsPort, "nameserver_port", 5053, "Addr to listen at")
+	flag.IntVar(&nsPort, "nameserver_port", 0, "Addr to listen at")
 	flag.StringVar(&apiBind, "api_bind", "", "Addr to listen at")
-	flag.IntVar(&apiPort, "api_port", 5080, "Addr to listen at")
+	flag.IntVar(&apiPort, "api_port", 0, "Addr to listen at")
 	flag.StringVar(&tsig, "tsig", "", "use MD5 hmac tsig: keyname:base64")
 
 	flag.Usage = func() {
@@ -62,11 +62,23 @@ func main() {
 		return
 	}
 
-	cfg.NameServerBind = nsBind
-	cfg.NameServerPort = nsPort
-	cfg.ApiServerBind = apiBind
-	cfg.ApiServerPort = apiPort
-	cfg.StorageDSN = connection
+	if nsBind != "" {
+		cfg.NameServerBind = nsBind
+	}
+	if nsPort != 0 {
+		cfg.NameServerPort = nsPort
+	}
+
+	if apiBind != "" {
+		cfg.ApiServerBind = apiBind
+	}
+	if apiPort != 0 {
+		cfg.ApiServerPort = apiPort
+	}
+
+	if connection != "" {
+		cfg.StorageDSN = connection
+	}
 
 	log.Info("Database is at connection %s", cfg.StorageDSN)
 
