@@ -50,6 +50,12 @@ type InfluxDbConfig struct {
 	Host     string
 	Database string
 }
+
+type LoggingConfig struct {
+	File  string
+	Level string
+}
+
 type NameServerConfig struct {
 	Bind          string
 	Port          int
@@ -60,8 +66,9 @@ type NameServerConfig struct {
 
 type TomlConfiguration struct {
 	Api        ApiConfig
-	Influx     InfluxDbConfig
 	Storage    StorageConfig
+	Influx     InfluxDbConfig
+	Logging    LoggingConfig
 	NameServer NameServerConfig
 }
 
@@ -77,12 +84,14 @@ type Configuration struct {
 	InfluxHost     string
 	InfluxDb       string
 
+	LogLevel string
+	LogFile  string
+
 	NameServerBind   string
 	NameServerPort   int
 	NameServerSecret string
-
-	LogQuery      bool
-	CompressQuery bool
+	LogQuery         bool
+	CompressQuery    bool
 }
 
 func LoadConfiguration(fileName string) (*Configuration, error) {
@@ -125,10 +134,14 @@ func parseTomlConfiguration(filename string) (*Configuration, error) {
 		StorageDSN:     tomlConfiguration.Storage.DSN,
 		StorageMaxIdle: tomlConfiguration.Storage.MaxIdle,
 
-		InfluxUser:       tomlConfiguration.Influx.User,
-		InfluxPassword:   tomlConfiguration.Influx.Password,
-		InfluxHost:       tomlConfiguration.Influx.Host,
-		InfluxDb:         tomlConfiguration.Influx.Database,
+		InfluxUser:     tomlConfiguration.Influx.User,
+		InfluxPassword: tomlConfiguration.Influx.Password,
+		InfluxHost:     tomlConfiguration.Influx.Host,
+		InfluxDb:       tomlConfiguration.Influx.Database,
+
+		LogFile:  tomlConfiguration.Logging.File,
+		LogLevel: tomlConfiguration.Logging.Level,
+
 		NameServerBind:   tomlConfiguration.NameServer.Bind,
 		NameServerPort:   tomlConfiguration.NameServer.Port,
 		NameServerSecret: tomlConfiguration.NameServer.Secret,

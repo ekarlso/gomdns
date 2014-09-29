@@ -21,8 +21,10 @@ package main
 
 import (
 	"flag"
+	"fmt"
 	"os"
 	"os/signal"
+	"path/filepath"
 	"syscall"
 
 	log "code.google.com/p/log4go"
@@ -42,6 +44,47 @@ var (
 	tsig string
 )
 
+func setupLogging(loggingLevel, logFile string) {
+	level := log.DEBUG
+	switch loggingLevel {
+	case "info":
+		level = log.INFO
+	case "warn":
+		level = log.WARNING
+	case "error":
+		level = log.ERROR
+	}
+
+	log.Global = make(map[string]*log.Filter)
+
+	facility, ok := GetSysLogFacility(logFile)
+	if ok {
+		flw, err := NewSysLogWriter(facility)
+		if err != nil {
+			fmt.Fprintf(os.Stderr, "NewSysLogWriter: %s\n", err.Error())
+			return
+		}
+		log.AddFilter("syslog", level, flw)
+	} else if logFile == "stdout" {
+		flw := log.NewConsoleLogWriter()
+		log.AddFilter("stdout", level, flw)
+	} else {
+		logFileDir := filepath.Dir(logFile)
+		os.MkdirAll(logFileDir, 0744)
+
+		flw := log.NewFileLogWriter(logFile, false)
+		log.AddFilter("file", level, flw)
+
+		flw.SetFormat("[%D %T] [%L] (%S) %M")
+		flw.SetRotate(true)
+		flw.SetRotateSize(0)
+		flw.SetRotateLines(0)
+		flw.SetRotateDaily(true)
+	}
+
+	log.Info("Redirectoring logging to %s", logFile)
+}
+
 func main() {
 	fileName := flag.String("config", "config.toml", "Config file")
 	flag.StringVar(&connection, "connection", "", "Connection string to use for Database")
@@ -50,6 +93,8 @@ func main() {
 	flag.StringVar(&apiBind, "api_bind", "", "Addr to listen at")
 	flag.IntVar(&apiPort, "api_port", 0, "Addr to listen at")
 	flag.StringVar(&tsig, "tsig", "", "use MD5 hmac tsig: keyname:base64")
+	stdout := flag.Bool("stdout", false, "Log to stdout overriding the configuration")
+	syslog := flag.String("syslog", "", "Log to syslog facility overriding the configuration")
 
 	flag.Usage = func() {
 		flag.PrintDefaults()
@@ -79,6 +124,16 @@ func main() {
 	if connection != "" {
 		cfg.StorageDSN = connection
 	}
+
+	if *stdout {
+		cfg.LogFile = "stdout"
+	}
+
+	if *syslog != "" {
+		cfg.LogFile = *syslog
+	}
+
+	setupLogging(cfg.LogLevel, cfg.LogFile)
 
 	log.Info("Database is at connection %s", cfg.StorageDSN)
 
