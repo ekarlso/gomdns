@@ -139,7 +139,7 @@ func main() {
 
 	stats.Setup(cfg)
 
-	db.Setup(cfg.StorageDSN)
+	db.Setup(cfg)
 	// Setup db access
 	if db.CheckDB(cfg.StorageDSN) != true {
 		log.Warn("Error verifying database connectivity, see above for errors")

@@ -23,15 +23,17 @@ import (
 	log "code.google.com/p/log4go"
 	_ "github.com/go-sql-driver/mysql"
 	"github.com/jmoiron/sqlx"
+
+	"github.com/ekarlso/gomdns/config"
 )
 
 var Database *sqlx.DB
 
 // Connect and return a connection
-func Setup(dsn string) (err error) {
-	log.Info("Connecting to %s", dsn)
+func Setup(cfg *config.Configuration) (err error) {
+	log.Info("Connecting to %s", cfg.StorageDSN)
 
-	db, err := sqlx.Open("mysql", dsn)
+	db, err := sqlx.Open("mysql", cfg.StorageDSN)
 	if err != nil {
 		log.Error(err)
 		return err
@@ -42,6 +44,9 @@ func Setup(dsn string) (err error) {
 		log.Error("Error connecting to db %s", err)
 		return err
 	}
+
+	db.SetMaxOpenConns(cfg.StorageMaxConnections)
+	db.SetMaxIdleConns(cfg.StorageMaxIdle)
 
 	Database = db
 	return nil

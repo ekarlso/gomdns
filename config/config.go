@@ -40,8 +40,9 @@ type ApiConfig struct {
 }
 
 type StorageConfig struct {
-	DSN     string
-	MaxIdle int
+	DSN            string
+	MaxIdle        int
+	MaxConnections int
 }
 
 type InfluxDbConfig struct {
@@ -76,8 +77,9 @@ type Configuration struct {
 	ApiServerBind string
 	ApiServerPort int
 
-	StorageDSN     string
-	StorageMaxIdle int
+	StorageDSN            string
+	StorageMaxIdle        int
+	StorageMaxConnections int
 
 	InfluxUser     string
 	InfluxPassword string
@@ -131,8 +133,9 @@ func parseTomlConfiguration(filename string) (*Configuration, error) {
 		ApiServerBind: tomlConfiguration.Api.Bind,
 		ApiServerPort: tomlConfiguration.Api.Port,
 
-		StorageDSN:     tomlConfiguration.Storage.DSN,
-		StorageMaxIdle: tomlConfiguration.Storage.MaxIdle,
+		StorageDSN:            tomlConfiguration.Storage.DSN,
+		StorageMaxIdle:        tomlConfiguration.Storage.MaxIdle,
+		StorageMaxConnections: tomlConfiguration.Storage.MaxConnections,
 
 		InfluxUser:     tomlConfiguration.Influx.User,
 		InfluxPassword: tomlConfiguration.Influx.Password,
