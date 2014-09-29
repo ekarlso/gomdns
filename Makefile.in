@@ -78,7 +78,8 @@ github.com/BurntSushi/toml \
 github.com/rcrowley/go-tigertonic \
 github.com/rcrowley/go-metrics \
 github.com/go-sql-driver/mysql \
-github.com/jmoiron/sqlx
+github.com/jmoiron/sqlx \
+github.com/influxdb/influxdb/client
 
 dependencies_paths := $(addprefix $(root)/src/,$(dependencies))
 
