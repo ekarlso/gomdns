@@ -63,7 +63,12 @@ func NewServer(config *config.Configuration) *HttpServer {
 
 func (self *HttpServer) ListenAndServe() {
 	var err error
-	self.conn, err = net.Listen("tcp", self.httpPort)
+	if self.httpPort != "" {
+		self.conn, err = net.Listen("tcp", self.httpPort)
+		if err != nil {
+			log.Error("Listen: ", err)
+		}
+	}
 
 	if err != nil {
 		log.Error("Listen: ", err)
