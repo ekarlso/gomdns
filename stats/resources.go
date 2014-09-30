@@ -19,39 +19,13 @@
  */
 package stats
 
-import (
-	"strings"
-
-	log "code.google.com/p/log4go"
-	"github.com/ekarlso/gomdns/config"
-	"github.com/miekg/dns"
-	metrics "github.com/rcrowley/go-metrics"
-)
-
-const (
-	QueryKey = "query"
-)
-
-var NameServerStats metrics.Registry
-
-func Setup(cfg *config.Configuration) {
-	log.Debug("Registering default metrics")
-	NameServerStats = metrics.NewRegistry()
-	ResetMeters()
-	setUpInflux(cfg)
+// Representation of a Meter
+type Meter struct {
+	Count    int64   `json:"count"`
+	Rate1    float64 `json:"1m.rate"`
+	Rate5    float64 `json:"5m.rate"`
+	Rate15   float64 `json:"15m.rate"`
+	RateMean float64 `json:"mean.rate"`
 }
 
-func ResetMeters() {
-	for k, _ := range dns.StringToType {
-		MeterQuery(k, 0)
-	}
-}
-
-func AddToMeter(key string, value int64) {
-	c := metrics.GetOrRegisterMeter(strings.ToLower(key), NameServerStats)
-	c.Mark(value)
-}
-
-func MeterQuery(qType string, value int64) {
-	AddToMeter(QueryKey+"."+qType, value)
-}
+func (s Meter) IsValid() bool { return s.Count != 0 }

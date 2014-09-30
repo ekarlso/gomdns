@@ -17,41 +17,43 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-package stats
+package main
 
 import (
-	"strings"
+	"flag"
+	"fmt"
+	"io/ioutil"
+	"runtime/debug"
+	"time"
 
-	log "code.google.com/p/log4go"
-	"github.com/ekarlso/gomdns/config"
-	"github.com/miekg/dns"
-	metrics "github.com/rcrowley/go-metrics"
+	"github.com/nsf/termbox-go"
 )
 
-const (
-	QueryKey = "query"
+var (
+	host     = flag.String("host", "http://localhost:5080", "Host to connect to for stats")
+	interval = flag.Int("interval", 5, "Interval to poll stats")
 )
 
-var NameServerStats metrics.Registry
+func main() {
+	flag.Parse()
 
-func Setup(cfg *config.Configuration) {
-	log.Debug("Registering default metrics")
-	NameServerStats = metrics.NewRegistry()
-	ResetMeters()
-	setUpInflux(cfg)
-}
+	defer func() {
+		if e := recover(); e != nil {
+			termbox.Close()
+			trace := fmt.Sprintf("%s: %s", e, debug.Stack()) // line 20
+			ioutil.WriteFile("trace.txt", []byte(trace), 0644)
+		}
+	}()
 
-func ResetMeters() {
-	for k, _ := range dns.StringToType {
-		MeterQuery(k, 0)
+	go startCli()
+	go startPoll()
+
+	for {
+		time.Sleep(time.Millisecond * 100)
+		if quit == true {
+			break
+		}
 	}
-}
 
-func AddToMeter(key string, value int64) {
-	c := metrics.GetOrRegisterMeter(strings.ToLower(key), NameServerStats)
-	c.Mark(value)
-}
-
-func MeterQuery(qType string, value int64) {
-	AddToMeter(QueryKey+"."+qType, value)
+	termbox.Close()
 }

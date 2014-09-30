@@ -17,41 +17,49 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-package stats
+package main
 
 import (
-	"strings"
+	"encoding/json"
+	"fmt"
+	"io/ioutil"
+	"net/http"
+	"time"
 
-	log "code.google.com/p/log4go"
-	"github.com/ekarlso/gomdns/config"
-	"github.com/miekg/dns"
-	metrics "github.com/rcrowley/go-metrics"
+	"github.com/ekarlso/gomdns/stats"
 )
 
-const (
-	QueryKey = "query"
-)
+var meters map[string]stats.Meter
 
-var NameServerStats metrics.Registry
-
-func Setup(cfg *config.Configuration) {
-	log.Debug("Registering default metrics")
-	NameServerStats = metrics.NewRegistry()
-	ResetMeters()
-	setUpInflux(cfg)
-}
-
-func ResetMeters() {
-	for k, _ := range dns.StringToType {
-		MeterQuery(k, 0)
+func startPoll() {
+	timer := time.Tick(time.Second * 2)
+	for {
+		select {
+		case <-timer:
+			PollStats()
+		}
 	}
 }
 
-func AddToMeter(key string, value int64) {
-	c := metrics.GetOrRegisterMeter(strings.ToLower(key), NameServerStats)
-	c.Mark(value)
-}
+func PollStats() {
+	url := *host + "/stats"
 
-func MeterQuery(qType string, value int64) {
-	AddToMeter(QueryKey+"."+qType, value)
+	response, err := http.Get(url)
+	if err != nil {
+		panic(err)
+	} else {
+		defer response.Body.Close()
+		contents, err := ioutil.ReadAll(response.Body)
+
+		if err != nil {
+			fmt.Println(err)
+		}
+
+		meters = map[string]stats.Meter{}
+
+		err = json.Unmarshal(contents, &meters)
+		if err != nil {
+			fmt.Println(err)
+		}
+	}
 }

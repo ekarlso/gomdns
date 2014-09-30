@@ -79,7 +79,8 @@ github.com/rcrowley/go-tigertonic \
 github.com/rcrowley/go-metrics \
 github.com/go-sql-driver/mysql \
 github.com/jmoiron/sqlx \
-github.com/influxdb/influxdb/client
+github.com/influxdb/influxdb/client \
+github.com/nsf/termbox-go
 
 dependencies_paths := $(addprefix $(root)/src/,$(dependencies))
 
@@ -90,6 +91,7 @@ dependencies: $(storage_engines) $(dependencies_paths)
 	
 build: | dependencies build_version_string 
 	$(GO) build -o minidns $(GO_BUILD_OPTIONS) github.com/ekarlso/gomdns/daemon
+	$(GO) build -o minidns-mon $(GO_BUILD_OPTIONS) github.com/ekarlso/gomdns/stats/monitor
 
 clean:
 	git status --ignored | grep src\/ | grep -v Makefile | xargs rm -rf

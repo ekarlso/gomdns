@@ -6,7 +6,7 @@ import (
 	influx "github.com/rcrowley/go-metrics/influxdb"
 )
 
-func setUp(cfg *config.Configuration) {
+func setUpInflux(cfg *config.Configuration) {
 	if cfg.InfluxUser == "" {
 		log.Debug("No InfluxDB user specified, not pushing stats.")
 		return
